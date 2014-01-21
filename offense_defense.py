@@ -21,18 +21,22 @@ def cost(matches,weights):
 def load_data():
 	df = pd.read_csv(
 		'regular_season_results.csv',
-		usecols = ['wteam','wscore','lteam','lscore']
+		usecols = ['season','wteam','wscore','lteam','lscore']
 	)
 	team_ids = df['wteam'].append(df['lteam']).unique()
 	mapping  = dict(izip(team_ids,range(team_ids.shape[0])))
 	df['wteam'] = [ mapping[i] for i in df['wteam'] ]
 	df['lteam'] = [ mapping[i] for i in df['lteam'] ]
-	return df,mapping
+
+	training = df[df.season.isin(list('ABCDEFGHIJKLMNOPQ'))][['wteam','wscore','lteam','lscore']].values
+	testing  = df[df.season == 'R' ][['wteam','wscore','lteam','lscore']].values
+	return mapping,training,testing
 
 if __name__ == '__main__':
-	df,mapping = load_data()
-	data = theano.shared(np.asarray(df.values,dtype=np.int16))
-	W    = theano.shared(np.random.random([len(mapping),2,1]))
+	mapping,train_data,test_data = load_data()
+	test_data = np.asarray(test_data,dtype=np.int16)
+	data = theano.shared(np.asarray(train_data,dtype=np.int16))
+	W    = theano.shared(np.random.random([len(mapping),2,10]))
 
 	matches = T.wmatrix('matches')
 	weights = T.dtensor3('weights')
@@ -42,13 +46,16 @@ if __name__ == '__main__':
 	train = theano.function(
 			inputs = [],
 			outputs = cost,
-			givens  = [
-				(matches, data),
-				(weights, W)
-			],
-			updates = [
-				(W, W - grad)
-			]
+			givens  = { matches: data, weights: W },
+			updates = { W: W - grad }
 		)
-	for _ in xrange(1000): print train()
+	test = theano.function(
+			inputs = [matches],
+			outputs = cost,
+			givens  = { matches: test_data, weights: W }
+		)
+	for _ in xrange(1000):
+		for _ in xrange(10):
+			train()
+		print test(test_data)
 
