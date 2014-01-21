@@ -9,9 +9,11 @@ def cost(matches,weights):
 	wteam_score  =         matches[:,1]
 	lteam_tensor = weights[matches[:,2]]
 	lteam_score  =         matches[:,3]
+	wteam_predict = T.nnet.softplus((wteam_tensor[:,0]*lteam_tensor[:,1]).sum(1))
+	lteam_predict = T.nnet.softplus((wteam_tensor[:,1]*lteam_tensor[:,0]).sum(1))
 	cost = T.mean(
-			( (wteam_tensor[:,0]*lteam_tensor[:,1]).sum(1) - wteam_score )**2 +\
-			( (wteam_tensor[:,1]*lteam_tensor[:,0]).sum(1) - lteam_score )**2
+			( wteam_predict - wteam_score )**2 +\
+			( lteam_predict - lteam_score )**2
 		)
 	return cost
 
@@ -48,6 +50,5 @@ if __name__ == '__main__':
 				(W, W - grad)
 			]
 		)
-	for _ in xrange(1000):
-		print train()
+	for _ in xrange(1000): print train()
 
