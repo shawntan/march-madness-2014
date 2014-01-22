@@ -6,9 +6,9 @@ from itertools import izip
 
 def cost(matches,weights):
 	wteam_tensor = weights[matches[:,0]]
-	wteam_score  =         matches[:,1]
 	lteam_tensor = weights[matches[:,2]]
-	lteam_score  =         matches[:,3]
+	wteam_score  = matches[:,1]
+	lteam_score  = matches[:,3]
 	wteam_predict = T.nnet.softplus((wteam_tensor[:,0]*lteam_tensor[:,1]).sum(1))
 	lteam_predict = T.nnet.softplus((wteam_tensor[:,1]*lteam_tensor[:,0]).sum(1))
 	accuracy      = T.mean(wteam_predict > lteam_predict)
@@ -18,29 +18,41 @@ def cost(matches,weights):
 		)
 	return cost, accuracy
 
-
-def load_data():
+def load_prep_csv(mapping,filename):
 	df = pd.read_csv(
-		'regular_season_results.csv',
+		filename,
 		usecols = ['season','wteam','wscore','lteam','lscore']
 	)
 	team_ids = df['wteam'].append(df['lteam']).unique()
-	mapping  = dict(izip(team_ids,range(team_ids.shape[0])))
+	for team_id in team_ids: 
+		if team_id not in mapping:
+			mapping[team_id] = len(mapping)
 	df['wteam'] = [ mapping[i] for i in df['wteam'] ]
 	df['lteam'] = [ mapping[i] for i in df['lteam'] ]
+	return df
 
-	training = df[df.season.isin(list('PQ'))][['wteam','wscore','lteam','lscore']].values
-	testing  = df[df.season == 'R' ][['wteam','wscore','lteam','lscore']].values
-	return mapping,training,testing
+
+def load_data():
+	mapping = {}
+	df  = load_prep_csv(mapping,'regular_season_results.csv')
+	dft = load_prep_csv(mapping,'tourney_results.csv')
+	training = df[df.season.isin(list('Q'))][['wteam','wscore','lteam','lscore']]
+	training = training.append(dft[dft.season.isin(list('QR'))][['wteam','wscore','lteam','lscore']])
+	testing  = df[df.season == 'R' ][['wteam','wscore','lteam','lscore']]
+	return mapping,training.values,testing.values
 
 if __name__ == '__main__':
 	mapping,train_data,test_data = load_data()
+
 	test_data = np.asarray(test_data,dtype=np.int16)
 	data = theano.shared(np.asarray(train_data,dtype=np.int16))
-	W    = theano.shared(np.random.random([len(mapping),2,5]))
+	init_weights = 0.1*np.random.randn(len(mapping),2,10)
+	W    = theano.shared(init_weights)
 
 	matches = T.wmatrix('matches')
 	weights = T.dtensor3('weights')
+	delta   = theano.shared(np.zeros(init_weights.shape))
+
 
 	cost, accuracy = cost(matches,weights)
 	grad = T.grad(cost,wrt=weights)
@@ -48,7 +60,10 @@ if __name__ == '__main__':
 			inputs = [],
 			outputs = cost,
 			givens  = { matches: data, weights: W },
-			updates = { W: W - grad }
+			updates = [
+				(W, W - 0.1*( grad + 0.5 * delta )),
+				(delta, grad)
+			]
 		)
 	test = theano.function(
 			inputs = [],
