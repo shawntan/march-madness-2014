@@ -9,6 +9,10 @@ def cost(matches,weights):
 	lteam_tensor = weights[matches[:,2]]
 	wteam_score  = matches[:,1]
 	lteam_score  = matches[:,3]
+	"""
+	wteam_predict = (wteam_tensor[:,0]*lteam_tensor[:,1]).sum(1)
+	lteam_predict = (wteam_tensor[:,1]*lteam_tensor[:,0]).sum(1)
+	"""
 	wteam_predict = T.nnet.softplus((wteam_tensor[:,0]*lteam_tensor[:,1]).sum(1))
 	lteam_predict = T.nnet.softplus((wteam_tensor[:,1]*lteam_tensor[:,0]).sum(1))
 	accuracy      = T.mean(wteam_predict > lteam_predict)
@@ -36,8 +40,8 @@ def load_data():
 	mapping = {}
 	df  = load_prep_csv(mapping,'regular_season_results.csv')
 	dft = load_prep_csv(mapping,'tourney_results.csv')
-	training = df[df.season.isin(list('Q'))][['wteam','wscore','lteam','lscore']]
-	training = training.append(dft[dft.season.isin(list('QR'))][['wteam','wscore','lteam','lscore']])
+	training = df[df.season.isin(list('PQ'))][['wteam','wscore','lteam','lscore']]
+	training = training.append(dft[dft.season.isin(list('PQR'))][['wteam','wscore','lteam','lscore']])
 	testing  = df[df.season == 'R' ][['wteam','wscore','lteam','lscore']]
 	return mapping,training.values,testing.values
 
@@ -46,7 +50,7 @@ if __name__ == '__main__':
 
 	test_data = np.asarray(test_data,dtype=np.int16)
 	data = theano.shared(np.asarray(train_data,dtype=np.int16))
-	init_weights = 0.1*np.random.randn(len(mapping),2,10)
+	init_weights = 0.1*np.random.randn(len(mapping),2,20)
 	W    = theano.shared(init_weights)
 
 	matches = T.wmatrix('matches')
