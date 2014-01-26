@@ -8,17 +8,17 @@ if __name__ == '__main__':
 	print test_data
 	train, test,shared_params = model.trainer_tester(mapping,training_data,test_data)
 	patience = 100
-	best_cost, best_acc, best_weights = np.inf, None, None
+	best_cost, best_weights = np.inf, None, None
 	while True:
 		for _ in xrange(10):
 			print "Taking step..." 
 			train()
-		c l,= test()
+		c = test()
 		if best_cost <= c:
 			patience -= 1
 			print patience
 		else:
-			best_cost,best_acc,best_weights = c,accuracy,shared_params.get_value()
-			print c,accuracy
+			best_cost, best_weights = c , shared_params.get_value()
+			print c
 		if patience == 0: break
-	print best_cost,best_acc
+	print best_cost
